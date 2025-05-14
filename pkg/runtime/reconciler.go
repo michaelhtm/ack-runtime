@@ -488,7 +488,9 @@ func (r *resourceReconciler) Sync(
 		if err != nil {
 			return latest, err
 		}
-	} else if !isReadOnly {
+	} else if isReadOnly {
+		return latest, nil
+	} else {
 		if adoptionPolicy == AdoptionPolicy_AdoptOrCreate {
 			// set adopt-or-create resource as managed before attempting
 			// update
@@ -738,6 +740,7 @@ func (r *resourceReconciler) updateResource(
 	defer func() {
 		exit(err)
 	}()
+	updated = latest
 
 	// Ensure the resource is managed
 	if err = r.failOnResourceUnmanaged(ctx, latest); err != nil {
