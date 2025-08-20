@@ -91,4 +91,9 @@ const (
 	// format of the requied fields to do a ReadOne when attempting to force-adopt
 	// a Resource
 	AnnotationAdoptionFields = AnnotationPrefix + "adoption-fields"
+	// AnnotationCARM is an annotation whose value contains the roleARN we want
+	// to use for CARM. Although the namespace/configmap approach is the recommended
+	// way of using CARM, this is a risky solution that allows users to define the role 
+	// they want to use to manage their AWS resource 
+	AnnotationCARM = AnnotationPrefix + "role-arn"
 )

@@ -234,31 +234,18 @@ func (r *resourceReconciler) Reconcile(ctx context.Context, req ctrlrt.Request) 
 	// If the ConfigMap is not created, or not populated with an
 	// accountID to roleARN mapping, we need to properly requeue with a
 	// helpful message to the user.
-	acctID, needCARMLookup := r.getOwnerAccountID(desired)
+	acctID, _ := r.getOwnerAccountID(desired)
 
-	var roleARN ackv1alpha1.AWSResourceName
-	if teamID := r.getTeamID(desired); teamID != "" && r.cfg.FeatureGates.IsEnabled(featuregate.TeamLevelCARM) {
-		// The user is specifying a namespace that is annotated with a team ID.
-		// Requeue if the corresponding roleARN is not available in the Teams configmap.
-		// Additionally, set the account ID to the role's account ID.
-		roleARN, err = r.getRoleARN(string(teamID), ackrtcache.ACKRoleTeamMap)
+
+	// If the role is defined on the actual resource, that will be the one prioritized.
+	roleARN := r.getRoleARNFromResource(desired)
+	if roleARN != "" {
+		parsedRoleARN, err := arn.Parse(string(roleARN))
 		if err != nil {
-			return r.handleCacheError(ctx, err, desired)
+			return ctrlrt.Result{}, ackerr.NewTerminalError(fmt.Errorf("failed parsing annotation roleARN as arn: %s", err))
 		}
-		parsedARN, err := arn.Parse(string(roleARN))
-		if err != nil {
-			return ctrlrt.Result{}, fmt.Errorf("parsing role ARN %q from %q configmap: %v", roleARN, ackrtcache.ACKRoleTeamMap, err)
-		}
-		acctID = ackv1alpha1.AWSAccountID(parsedARN.AccountID)
-	} else if needCARMLookup {
-		// The user is specifying a namespace that is annotated with an owner account ID.
-		// Requeue if the corresponding roleARN is not available in the Accounts configmap.
-		roleARN, err = r.getRoleARN(string(acctID), ackrtcache.ACKRoleAccountMap)
-		if err != nil {
-			return r.handleCacheError(ctx, err, desired)
-		}
+		acctID = ackv1alpha1.AWSAccountID(parsedRoleARN.AccountID)
 	}
-
 	region := r.getRegion(desired)
 	endpointURL := r.getEndpointURL(desired)
 	gvk := r.rd.GroupVersionKind()
@@ -283,6 +270,10 @@ func (r *resourceReconciler) Reconcile(ctx context.Context, req ctrlrt.Request) 
 	}
 	latest, err := r.reconcile(ctx, rm, desired)
 	return r.HandleReconcileError(ctx, desired, latest, err)
+}
+
+func (r *resourceReconciler) getRoleARNFromResource(desired acktypes.AWSResource) ackv1alpha1.AWSResourceName {
+	return ackv1alpha1.AWSResourceName(desired.MetaObject().GetAnnotations()[ackv1alpha1.AnnotationCARM])
 }
 
 func (r *resourceReconciler) handleCacheError(

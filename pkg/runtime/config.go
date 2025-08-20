@@ -72,15 +72,16 @@ func (c *serviceController) NewAWSConfig(
 		return awsCfg, err
 	}
 
-	if endpointURL != nil && *endpointURL != "" {
-		awsCfg.BaseEndpoint = endpointURL
-	}
-
 	if roleARN != "" {
 		client := sts.NewFromConfig(awsCfg)
 		creds := stscreds.NewAssumeRoleProvider(client, string(roleARN))
 		awsCfg.Credentials = aws.NewCredentialsCache(creds)
 	}
+
+	if endpointURL != nil && *endpointURL != "" {
+		awsCfg.BaseEndpoint = endpointURL
+	}
+
 	return awsCfg, nil
 }
 
